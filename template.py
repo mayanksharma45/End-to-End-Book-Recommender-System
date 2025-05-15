@@ -31,6 +31,7 @@ list_of_files = [
     "config/config.yaml",
     ".dockerignore",
     "app.py",
+    "main.py",
     "Dockerfile",
     "setup.py"
 
