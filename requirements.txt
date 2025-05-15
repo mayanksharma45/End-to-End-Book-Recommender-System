@@ -4,4 +4,4 @@ numpy
 PyYAML
 streamlit
 scipy
--e .
+# -e .
