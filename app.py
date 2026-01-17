@@ -3,8 +3,11 @@ import pickle
 import streamlit as st
 import numpy as np
 from pathlib import Path
+
 from books_recommender.logger.log import logging
 from books_recommender.pipeline.training_pipeline import TrainingPipeline
+from books_recommender.exception.exception_handler import AppException
+
 
 # ------------------------------------------------------------------
 # PATH SETUP
@@ -26,81 +29,101 @@ BOOK_NAMES_PATH = TEMPLATES_DIR / "book_names.pkl"
 class Recommendation:
 
     def fetch_poster(self, neighbors):
-        """Fetch poster URLs safely (NO pandas slicing)."""
-        poster_url = []
+        """Fetch poster URLs safely."""
+        try:
+            poster_url = []
 
-        book_pivot = pickle.load(open(BOOK_PIVOT_PATH, "rb"))
-        final_rating = pickle.load(open(FINAL_RATING_PATH, "rb"))
+            book_pivot = pickle.load(open(BOOK_PIVOT_PATH, "rb"))
+            final_rating = pickle.load(open(FINAL_RATING_PATH, "rb"))
 
-        for idx in neighbors:
-            idx = int(idx)  # guarantee scalar
+            for idx in neighbors:
+                idx = int(idx)  # guarantee scalar
 
-            book_name = book_pivot.index[idx]
+                book_name = book_pivot.index[idx]
 
-            row = final_rating.loc[final_rating["title"] == book_name]
+                row = final_rating.loc[final_rating["title"] == book_name]
 
-            if row.empty:
-                poster_url.append(None)
-            else:
-                poster_url.append(row["image_url"].values[0])
+                if row.empty:
+                    poster_url.append(None)
+                else:
+                    poster_url.append(row["image_url"].values[0])
 
-        return poster_url
+            return poster_url
+
+        except Exception as e:
+            raise AppException(e, sys) from e
 
     def recommend_book(self, book_name):
-        model = pickle.load(open(TRAINED_MODEL_PATH, "rb"))
-        book_pivot = pickle.load(open(BOOK_PIVOT_PATH, "rb"))
+        try:
+            model = pickle.load(open(TRAINED_MODEL_PATH, "rb"))
+            book_pivot = pickle.load(open(BOOK_PIVOT_PATH, "rb"))
 
-        book_id = int(np.where(book_pivot.index == book_name)[0][0])
+            book_id = int(np.where(book_pivot.index == book_name)[0][0])
 
-        _, neighbors = model.kneighbors(
-            book_pivot.iloc[book_id].values.reshape(1, -1),
-            n_neighbors=6
-        )
+            _, neighbors = model.kneighbors(
+                book_pivot.iloc[book_id].values.reshape(1, -1),
+                n_neighbors=6
+            )
 
-        neighbors = [int(i) for i in neighbors.flatten()][1:]  # skip input book
+            # flatten + skip the selected book itself
+            neighbors = [int(i) for i in neighbors.flatten()][1:]
 
-        recommended_books = [book_pivot.index[i] for i in neighbors]
+            recommended_books = [book_pivot.index[i] for i in neighbors]
 
-        poster_url = self.fetch_poster(neighbors)
+            poster_url = self.fetch_poster(neighbors)
 
-        return recommended_books, poster_url
+            return recommended_books, poster_url
 
+        except Exception as e:
+            raise AppException(e, sys) from e
 
     def train_engine(self):
-        obj = TrainingPipeline()
-        obj.start_training_pipeline()
-        st.success("Training Completed!")
-        logging.info("Training completed successfully")
+        try:
+            obj = TrainingPipeline()
+            obj.start_training_pipeline()
+            st.success("Training Completed!")
+            logging.info("Training completed successfully")
+
+        except Exception as e:
+            raise AppException(e, sys) from e
 
     def recommendations_engine(self, selected_book):
-        recommended_books, poster_url = self.recommend_book(selected_book)
+        try:
+            recommended_books, poster_url = self.recommend_book(selected_book)
 
-        cols = st.columns(5)
-        for i in range(5):
-            with cols[i]:
-                st.text(recommended_books[i])
-                if poster_url[i]:
-                    st.image(poster_url[i])
+            cols = st.columns(5)
+            for i in range(5):
+                with cols[i]:
+                    st.text(recommended_books[i])
+                    if poster_url[i]:
+                        st.image(poster_url[i])
+
+        except Exception as e:
+            raise AppException(e, sys) from e
 
 
 # ------------------------------------------------------------------
 # STREAMLIT UI
 # ------------------------------------------------------------------
 if __name__ == "__main__":
-    st.header("📚 End-to-End Book Recommender System")
-    st.write("Collaborative filtering based recommendation system")
+    try:
+        st.header("📚 End-to-End Book Recommender System")
+        st.write("Collaborative filtering based recommendation system")
 
-    obj = Recommendation()
+        obj = Recommendation()
 
-    if st.button("Train Recommender System"):
-        obj.train_engine()
+        if st.button("Train Recommender System"):
+            obj.train_engine()
 
-    book_names = pickle.load(open(BOOK_NAMES_PATH, "rb"))
+        book_names = pickle.load(open(BOOK_NAMES_PATH, "rb"))
 
-    selected_book = st.selectbox(
-        "Select a book",
-        book_names
-    )
+        selected_book = st.selectbox(
+            "Select a book",
+            book_names
+        )
 
-    if st.button("Show Recommendation"):
-        obj.recommendations_engine(selected_book)
+        if st.button("Show Recommendation"):
+            obj.recommendations_engine(selected_book)
+
+    except Exception as e:
+        raise AppException(e, sys) from e
