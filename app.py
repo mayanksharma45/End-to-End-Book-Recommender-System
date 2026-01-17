@@ -31,28 +31,22 @@ class Recommendation:
 
     def fetch_poster(self, suggestion):
         try:
-            book_name = []
-            ids_index = []
             poster_url = []
 
             book_pivot = pickle.load(open(BOOK_PIVOT_PATH, "rb"))
             final_rating = pickle.load(open(FINAL_RATING_PATH, "rb"))
 
-            for book_id in suggestion:
-                book_name.append(book_pivot.index[book_id])
-
-            for name in book_name[0]:
-                ids = np.where(final_rating["title"] == name)[0][0]
-                ids_index.append(ids)
-
-            for idx in ids_index:
-                url = final_rating.iloc[idx]["image_url"]
-                poster_url.append(url)
+            # suggestion is now a list of indices
+            for idx in suggestion:
+                book_name = book_pivot.index[idx]
+                row_index = final_rating[final_rating["title"] == book_name].index[0]
+                poster_url.append(final_rating.loc[row_index, "image_url"])
 
             return poster_url
 
         except Exception as e:
             raise AppException(e, sys) from e
+
 
         
 
@@ -71,17 +65,19 @@ class Recommendation:
                 n_neighbors=6
             )
 
-            poster_url = self.fetch_poster(suggestion)
+            # 🔥 FIX: flatten suggestion array
+            suggestion = suggestion[0]
 
-            for i in range(len(suggestion)):
-                books = book_pivot.index[suggestion[i]]
-                for j in books:
-                    books_list.append(j)
+            poster_url = self.fetch_poster([suggestion])
+
+            for idx in suggestion:
+                books_list.append(book_pivot.index[idx])
 
             return books_list, poster_url
 
         except Exception as e:
             raise AppException(e, sys) from e
+
 
 
 
